@@ -11,6 +11,7 @@ import secrets
 import uuid
 from datetime import datetime, time
 from functools import wraps
+from zoneinfo import ZoneInfo
 
 import psycopg2
 import psycopg2.extras
@@ -47,7 +48,8 @@ VIDEO_EXTS = {"mp4", "webm"}
 def get_db():
     """1リクエストにつき1つの接続を使い回す"""
     if "db" not in g:
-        g.db = psycopg2.connect(app.config["DATABASE_URL"])
+        # 投稿日時を日本時間で記録するため、DBセッションのタイムゾーンを指定
+        g.db = psycopg2.connect(app.config["DATABASE_URL"], options="-c timezone=Asia/Tokyo")
     return g.db
 
 
@@ -130,10 +132,12 @@ def login_required(view):
 # 営業中かどうかの判定
 # ------------------------------------------------------------
 WEEKDAYS = ["月", "火", "水", "木", "金", "土", "日"]
+# サーバの時計がUTCでも日本時間で判定する
+JST = ZoneInfo("Asia/Tokyo")
 
 
 def is_open_now(shop, now=None):
-    now = now or datetime.now()
+    now = now or datetime.now(JST)
     # 定休日（例:「水曜日」「月・火」）に今日の曜日が含まれていれば休み
     if WEEKDAYS[now.weekday()] in shop["closed_days"]:
         return False
