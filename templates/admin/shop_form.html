@@ -1,0 +1,19 @@
+{# [AI生成] Claudeが作成（AI利用記録 #6） 店舗の追加・編集フォーム #}
+{% extends "base.html" %}
+{% block title %}{{ '店舗編集' if shop_id else '店舗追加' }}{% endblock %}
+{% block content %}
+<h1>{{ '店舗編集' if shop_id else '店舗追加' }}</h1>
+<form method="post" class="form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>店名 <input type="text" name="name" maxlength="100" required value="{{ shop.name if shop }}"></label>
+  <label>ジャンル <input type="text" name="category" maxlength="50" value="{{ shop.category if shop }}"></label>
+  <label>住所 <input type="text" name="address" maxlength="200" value="{{ shop.address if shop }}"></label>
+  <label>電話 <input type="text" name="phone" maxlength="20" value="{{ shop.phone if shop }}"></label>
+  <label>開店時間 <input type="time" name="open_time" required value="{{ shop.open_time if shop }}"></label>
+  <label>閉店時間 <input type="time" name="close_time" required value="{{ shop.close_time if shop }}"></label>
+  <label>定休日（例: 水曜日） <input type="text" name="closed_days" maxlength="50" value="{{ shop.closed_days if shop }}"></label>
+  <label>紹介文 <textarea name="description" rows="4">{{ shop.description if shop }}</textarea></label>
+  <button type="submit">保存</button>
+  <a href="{{ url_for('admin_shops') }}">キャンセル</a>
+</form>
+{% endblock %}

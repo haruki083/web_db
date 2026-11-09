@@ -1,0 +1,11 @@
+{# [AI生成] Claudeが作成（AI利用記録 #6） 店舗カード（一覧とトップで共通） #}
+<article class="card">
+  <h3><a href="{{ url_for('shop_detail', shop_id=shop.id) }}">{{ shop.name }}</a></h3>
+  <p class="meta">{{ shop.category }}</p>
+  <p>
+    {{ shop.open_time.strftime('%H:%M') }}〜{{ shop.close_time.strftime('%H:%M') }}
+    {% if shop.is_open %}<span class="badge open">営業中</span>
+    {% else %}<span class="badge closed">営業時間外</span>{% endif %}
+  </p>
+  <p class="meta">定休日: {{ shop.closed_days or 'なし' }}</p>
+</article>

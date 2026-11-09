@@ -1,0 +1,25 @@
+{# [AI生成] Claudeが作成（AI利用記録 #6） 店舗管理一覧 #}
+{% extends "base.html" %}
+{% block title %}店舗管理{% endblock %}
+{% block content %}
+<h1>店舗管理</h1>
+<p><a class="button" href="{{ url_for('admin_shop_new') }}">＋ 店舗を追加</a></p>
+<table class="list">
+  <tr><th>ID</th><th>店名</th><th>営業時間</th><th>定休日</th><th>操作</th></tr>
+  {% for s in shops %}
+  <tr>
+    <td>{{ s.id }}</td>
+    <td>{{ s.name }}</td>
+    <td>{{ s.open_time.strftime('%H:%M') }}〜{{ s.close_time.strftime('%H:%M') }}</td>
+    <td>{{ s.closed_days }}</td>
+    <td class="actions">
+      <a href="{{ url_for('admin_shop_edit', shop_id=s.id) }}">編集</a>
+      <form method="post" action="{{ url_for('admin_shop_delete', shop_id=s.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="danger">削除</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

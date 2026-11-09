@@ -46,6 +46,23 @@
 - 得た知識・ヒント: GitHubでのリポジトリ作成手順と、Claude GitHub App の対象リポジトリ追加手順。
 - 自分の作業への反映: GitHub に haruki083/web_db を作成。記録ファイルをこのリポジトリへ移動。
 
+## #6 コード一式の生成を依頼
+- 日時: 2026-11-09
+- プロンプト（原文）:
+  > Flaskアプリ,html,http,PRGパターン,postgresql,
+  > （略）
+  > コード書いてくれていいよ
+- AIが生成したもの（各ファイル先頭に [AI生成] と記載）:
+  - app.py / schema.sql / create_admin.py / templates/ 以下すべて / static/style.css / README.md
+- 得た知識・ヒント（自分の言葉で書き直すこと）:
+  - PRGパターン: POSTで保存した後 redirect() でGETに移動し、結果は flash() で表示する。再読み込みで二重投稿されない。
+  - SQLは文字列結合せず、cur.execute(sql, (値,)) のプレースホルダで渡す。
+  - CSRFトークン: セッションに乱数を保存→フォームのhiddenに埋め込み→POST時に一致を確認。
+  - パスワードは generate_password_hash / check_password_hash で扱う。
+  - アップロードは拡張子＋ファイル先頭のバイト列で確認し、保存名はuuidにする。
+  - 営業中判定は TIME 型で開店・閉店を持ち、日付をまたぐ営業も考慮する。
+- 自分の作業への反映: （どこを理解し、どこを自分で変更・追加したかを記入）
+
 ---
 <!-- テンプレート
 ## #N タイトル
