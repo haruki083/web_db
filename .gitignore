@@ -218,3 +218,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# 地域ポータル: アップロードされたファイルはGitに含めない
+uploads/*
+!uploads/.gitkeep

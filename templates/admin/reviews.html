@@ -1,0 +1,45 @@
+{# [AI生成] Claudeが作成（AI利用記録 #6） 口コミ管理 #}
+{% extends "base.html" %}
+{% block title %}口コミ管理{% endblock %}
+{% block content %}
+<h1>口コミ管理</h1>
+<p class="tabs">
+  {% for key, label in [('pending', '承認待ち'), ('approved', '公開中'), ('hidden', '非公開')] %}
+    <a href="{{ url_for('admin_reviews', status=key) }}" class="{{ 'active' if status == key }}">{{ label }}</a>
+  {% endfor %}
+</p>
+<table class="list">
+  <tr><th>日時</th><th>店舗</th><th>名前</th><th>評価</th><th>内容</th><th>操作</th></tr>
+  {% for r in reviews %}
+  <tr>
+    <td>{{ r.created_at.strftime('%m/%d %H:%M') }}</td>
+    <td>{{ r.shop_name }}</td>
+    <td>{{ r.nickname }}</td>
+    <td>{{ r.rating }}</td>
+    <td class="comment">{{ r.comment }}</td>
+    <td class="actions">
+      {% if status != 'approved' %}
+      <form method="post" action="{{ url_for('admin_review_status', review_id=r.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="status" value="approved">
+        <button type="submit">公開</button>
+      </form>
+      {% endif %}
+      {% if status != 'hidden' %}
+      <form method="post" action="{{ url_for('admin_review_status', review_id=r.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="status" value="hidden">
+        <button type="submit">非公開</button>
+      </form>
+      {% endif %}
+      <form method="post" action="{{ url_for('admin_review_delete', review_id=r.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="danger">削除</button>
+      </form>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6">該当する口コミはありません。</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

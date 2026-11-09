@@ -1,0 +1,9 @@
+{# [AI生成] Claudeが作成（AI利用記録 #6） 写真・動画1件分の表示 #}
+<figure class="media-item">
+  {% if m.media_type == 'image' %}
+    <img src="{{ url_for('uploaded_file', filename=m.filename) }}" alt="{{ m.title }}">
+  {% else %}
+    <video src="{{ url_for('uploaded_file', filename=m.filename) }}" controls preload="metadata"></video>
+  {% endif %}
+  <figcaption><strong>{{ m.title }}</strong>{% if m.description %}<br>{{ m.description }}{% endif %}</figcaption>
+</figure>

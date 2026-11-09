@@ -1,0 +1,44 @@
+{# [AI生成] Claudeが作成（AI利用記録 #6） 店舗詳細＋口コミ #}
+{% extends "base.html" %}
+{% block title %}{{ shop.name }}{% endblock %}
+{% block content %}
+<h1>{{ shop.name }}
+  {% if shop.is_open %}<span class="badge open">営業中</span>
+  {% else %}<span class="badge closed">営業時間外</span>{% endif %}
+</h1>
+<table class="info">
+  <tr><th>ジャンル</th><td>{{ shop.category }}</td></tr>
+  <tr><th>営業時間</th><td>{{ shop.open_time.strftime('%H:%M') }}〜{{ shop.close_time.strftime('%H:%M') }}</td></tr>
+  <tr><th>定休日</th><td>{{ shop.closed_days or 'なし' }}</td></tr>
+  <tr><th>住所</th><td>{{ shop.address }}</td></tr>
+  <tr><th>電話</th><td>{{ shop.phone }}</td></tr>
+</table>
+<p class="description">{{ shop.description }}</p>
+
+<h2>口コミ（{{ reviews|length }}件）</h2>
+{% for r in reviews %}
+  <div class="review">
+    <p><strong>{{ r.nickname }}</strong>
+       <span class="stars">{{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }}</span>
+       <span class="meta">{{ r.created_at.strftime('%Y/%m/%d') }}</span></p>
+    {# {{ }} は自動でHTMLエスケープされるため、<script>等を書かれても実行されない #}
+    <p class="comment">{{ r.comment }}</p>
+  </div>
+{% else %}
+  <p>まだ口コミはありません。</p>
+{% endfor %}
+
+<h2>口コミを書く</h2>
+<form method="post" action="{{ url_for('post_review', shop_id=shop.id) }}" class="form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>ニックネーム <input type="text" name="nickname" maxlength="30" required></label>
+  <label>評価
+    <select name="rating" required>
+      {% for i in range(5, 0, -1) %}<option value="{{ i }}">{{ '★' * i }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>口コミ <textarea name="comment" rows="4" maxlength="1000" required></textarea></label>
+  <button type="submit">投稿する</button>
+  <p class="meta">※ 投稿は管理者の確認後に公開されます。</p>
+</form>
+{% endblock %}

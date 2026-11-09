@@ -1,0 +1,11 @@
+{# [AI生成] Claudeが作成（AI利用記録 #6） ギャラリー #}
+{% extends "base.html" %}
+{% block title %}ギャラリー{% endblock %}
+{% block content %}
+<h1>{{ region_name }}ギャラリー</h1>
+{% if media %}
+  <div class="grid">{% for m in media %}{% include "_media_item.html" %}{% endfor %}</div>
+{% else %}
+  <p>まだ投稿がありません。</p>
+{% endif %}
+{% endblock %}

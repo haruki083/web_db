@@ -1,0 +1,40 @@
+{# [AI生成] Claudeが作成（AI利用記録 #6） 全ページ共通のレイアウト #}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %} | {{ region_name }}ポータル</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="site-header">
+    <a class="logo" href="{{ url_for('index') }}">{{ region_name }}ポータル</a>
+    <nav>
+      <a href="{{ url_for('shop_list') }}">お店</a>
+      <a href="{{ url_for('gallery') }}">ギャラリー</a>
+      {% if session.admin_id %}
+        <a href="{{ url_for('admin_reviews') }}">口コミ管理</a>
+        <a href="{{ url_for('admin_shops') }}">店舗管理</a>
+        <a href="{{ url_for('admin_media') }}">写真・動画管理</a>
+        <form class="inline" method="post" action="{{ url_for('admin_logout') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="link-button">ログアウト</button>
+        </form>
+      {% endif %}
+    </nav>
+  </header>
+
+  <main>
+    {# flash メッセージ（PRGでリダイレクトした後に結果を表示する） #}
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+      <p class="flash {{ category }}">{{ message }}</p>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    &copy; {{ region_name }}地域活性化ポータル ・ <a href="{{ url_for('admin_login') }}">管理者</a>
+  </footer>
+</body>
+</html>

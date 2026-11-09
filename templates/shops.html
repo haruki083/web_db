@@ -1,0 +1,7 @@
+{# [AI生成] Claudeが作成（AI利用記録 #6） 店舗一覧 #}
+{% extends "base.html" %}
+{% block title %}お店一覧{% endblock %}
+{% block content %}
+<h1>お店一覧</h1>
+<div class="grid">{% for shop in shops %}{% include "_shop_card.html" %}{% endfor %}</div>
+{% endblock %}

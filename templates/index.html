@@ -1,0 +1,20 @@
+{# [AI生成] Claudeが作成（AI利用記録 #6） トップページ #}
+{% extends "base.html" %}
+{% block title %}トップ{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>ようこそ、{{ region_name }}へ</h1>
+  <p>地域のお店や風景など、{{ region_name }}の魅力を紹介します。</p>
+</section>
+
+<h2>最新の写真・動画</h2>
+{% if media %}
+  <div class="grid">{% for m in media %}{% include "_media_item.html" %}{% endfor %}</div>
+  <p><a href="{{ url_for('gallery') }}">ギャラリーをもっと見る →</a></p>
+{% else %}
+  <p>まだ投稿がありません。</p>
+{% endif %}
+
+<h2>地域のお店</h2>
+<div class="grid">{% for shop in shops %}{% include "_shop_card.html" %}{% endfor %}</div>
+{% endblock %}

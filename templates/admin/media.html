@@ -1,0 +1,29 @@
+{# [AI生成] Claudeが作成（AI利用記録 #6） 写真・動画管理 #}
+{% extends "base.html" %}
+{% block title %}写真・動画管理{% endblock %}
+{% block content %}
+<h1>写真・動画管理</h1>
+{# ファイル送信には enctype="multipart/form-data" が必要 #}
+<form method="post" enctype="multipart/form-data" class="form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>タイトル <input type="text" name="title" maxlength="100" required></label>
+  <label>説明 <textarea name="description" rows="2"></textarea></label>
+  <label>ファイル（jpg / png / gif / webp / mp4 / webm、50MBまで）
+    <input type="file" name="file" accept=".jpg,.jpeg,.png,.gif,.webp,.mp4,.webm" required>
+  </label>
+  <button type="submit">アップロード</button>
+</form>
+
+<h2>登録済み（{{ media|length }}件）</h2>
+<div class="grid">
+  {% for m in media %}
+  <div>
+    {% include "_media_item.html" %}
+    <form method="post" action="{{ url_for('admin_media_delete', media_id=m.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="danger">削除</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
