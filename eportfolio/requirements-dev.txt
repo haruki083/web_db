@@ -1,0 +1,3 @@
+# [AI生成] Claudeが作成（AI利用記録 #7）
+-r requirements.txt
+pytest

@@ -1,0 +1,8 @@
+# [AI生成] Claudeが作成（AI利用記録 #7）
+__pycache__/
+*.pyc
+venv/
+.env
+instance/
+.pytest_cache/
+*.pem
