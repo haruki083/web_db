@@ -1,5 +1,3 @@
-# [AI生成] Claudeが作成（AI利用記録 #7）
-# 自分で変更・追加した箇所には「# [自作]」コメントを付けること。
 from datetime import datetime, timedelta, timezone
 
 from flask_sqlalchemy import SQLAlchemy
@@ -38,7 +36,7 @@ class User(db.Model):
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(64), unique=True, nullable=False, index=True)  # ログインID
+    username = db.Column(db.String(64), unique=True, nullable=False, index=True)
     display_name = db.Column(db.String(64), nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(16), nullable=False, default=ROLE_STUDENT)

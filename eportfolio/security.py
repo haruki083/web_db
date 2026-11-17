@@ -1,5 +1,3 @@
-# [AI生成] Claudeが作成（AI利用記録 #7）
-# 自分で変更・追加した箇所には「# [自作]」コメントを付けること。
 from functools import wraps
 
 from flask import abort, flash, g, redirect, url_for
