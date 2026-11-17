@@ -8,9 +8,8 @@
     <h1 class="h3 mb-3">学生登録</h1>
     <form action="{{ url_for('signup') }}" method="POST" novalidate>
       {{ form.hidden_tag() }}
-      {{ ui.field(form.username, autocomplete="username") }}
+      {{ ui.field(form.student_no, autocomplete="username", placeholder="例：s2522001", help="ログインするときはこの学籍番号を使います。あとから変更もできます。") }}
       {{ ui.field(form.display_name) }}
-      {{ ui.field(form.student_no) }}
       {{ ui.field(form.password, autocomplete="new-password", help="8文字以上で、英字と数字を両方含めてください。") }}
       {{ ui.field(form.confirm, autocomplete="new-password") }}
       {% if code_required %}{{ ui.field(form.signup_code, autocomplete="off") }}{% endif %}

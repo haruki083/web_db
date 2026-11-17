@@ -88,6 +88,21 @@
   - CSP（Content-Security-Policy）でインラインスクリプトを禁止し、JavaScript は static/script.js にまとめる
 - 自分の作業への反映: （どこを理解し、どこを自分で変更・追加したかを記入）
 
+## #8 学籍番号でのログインと、ログインID・パスワードの変更
+- 日時: 2026-11-17
+- プロンプト（原文）:
+  > 学籍番号でログインのIDとパスワード変えれるようにして
+- AIが変更したもの:
+  - eportfolio/forms.py（SignupForm の学籍番号をログインIDに、LoginIdChangeForm を追加）
+  - eportfolio/app.py（signup・login・change_login_id・login_id_taken・renew_session）
+  - eportfolio/templates/login_id.html（新規）、signup.html、profile_form.html、base.html、login.html
+  - eportfolio/tests/test_app.py（テスト3件を追加）
+- 得た知識・ヒント（自分の言葉で書き直すこと）:
+  - ログインIDを変更するときは、なりすましを防ぐために現在のパスワードで本人確認する
+  - IDやパスワードを変えたら、セッションを作り直す（セッション固定化対策）
+  - 新しいIDが、他の人のログインIDや学籍番号と重なっていないか確認する
+- 自分の作業への反映: （どこを理解し、どこを自分で変更・追加したかを記入）
+
 ---
 <!-- テンプレート
 ## #N タイトル

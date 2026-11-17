@@ -41,6 +41,7 @@
               {{ current_user.display_name }}（{{ '教員' if current_user.is_teacher else '学生' }}）
             </a>
             <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="{{ url_for('change_login_id') }}">{{ '学籍番号（ログインID）' if current_user.is_student else 'ログインID' }}の変更</a></li>
               <li><a class="dropdown-item" href="{{ url_for('change_password') }}">パスワード変更</a></li>
               <li><hr class="dropdown-divider"></li>
               <li>

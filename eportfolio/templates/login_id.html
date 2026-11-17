@@ -1,0 +1,19 @@
+{# [AI生成] Claudeが作成（AI利用記録 #8） #}
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}ログインIDの変更{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <h1 class="h3 mb-3">{{ '学籍番号（ログインID）' if current_user.is_student else 'ログインID' }}の変更</h1>
+    <p class="small text-muted">現在のログインID：<strong>{{ current_user.username }}</strong></p>
+    <form action="{{ url_for('change_login_id') }}" method="POST" novalidate>
+      {{ form.hidden_tag() }}
+      {{ ui.field(form.new_username, autocomplete="username", help="半角英数字と _ . - が使えます（3〜32文字）。") }}
+      {{ ui.field(form.current, autocomplete="current-password", help="本人確認のため、現在のパスワードを入力してください。") }}
+      {{ form.submit(class="btn btn-primary") }}
+      <a class="btn btn-outline-secondary" href="{{ url_for('change_password') }}">パスワードを変更する</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

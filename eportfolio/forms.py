@@ -29,8 +29,8 @@ def strip_filter(value):
 
 # ---------- 認証 ----------
 class LoginForm(FlaskForm):
-    username = StringField("ログインID", validators=[
-        DataRequired(message="ログインIDを入力してください。"), Length(max=64)])
+    username = StringField("学籍番号（教員はログインID）", validators=[
+        DataRequired(message="学籍番号（ログインID）を入力してください。"), Length(max=64)])
     password = PasswordField("パスワード", validators=[
         DataRequired(message="パスワードを入力してください。")])
     submit = SubmitField("ログイン")
@@ -39,6 +39,13 @@ class LoginForm(FlaskForm):
 class LogoutForm(FlaskForm):
     submit = SubmitField("ログアウト")
 
+
+# 学籍番号（＝ログインID）の入力ルール
+LOGIN_ID_RULES = [
+    DataRequired(message="学籍番号（ログインID）を入力してください。"),
+    Length(min=3, max=32, message="学籍番号（ログインID）は3〜32文字で入力してください。"),
+    Regexp(r"^[A-Za-z0-9_.-]+$", message="学籍番号（ログインID）は半角英数字と _ . - のみ使えます。"),
+]
 
 PASSWORD_RULES = [
     DataRequired(message="パスワードを入力してください。"),
@@ -49,14 +56,10 @@ PASSWORD_RULES = [
 
 
 class SignupForm(FlaskForm):
-    username = StringField("ログインID（学籍番号など）", filters=[strip_filter], validators=[
-        DataRequired(message="ログインIDを入力してください。"),
-        Length(min=3, max=64, message="ログインIDは3〜64文字で入力してください。"),
-        Regexp(r"^[A-Za-z0-9_.-]+$", message="ログインIDは半角英数字と _ . - のみ使えます。"),
-    ])
+    student_no = StringField("学籍番号（ログインIDになります）", filters=[strip_filter],
+                             validators=LOGIN_ID_RULES)
     display_name = StringField("氏名", filters=[strip_filter], validators=[
         DataRequired(message="氏名を入力してください。"), Length(max=64)])
-    student_no = StringField("学籍番号", filters=[strip_filter], validators=[Optional(), Length(max=32)])
     password = PasswordField("パスワード", validators=PASSWORD_RULES)
     confirm = PasswordField("パスワード（確認）", validators=[
         DataRequired(message="確認用パスワードを入力してください。"),
@@ -75,11 +78,19 @@ class PasswordChangeForm(FlaskForm):
     submit = SubmitField("変更する")
 
 
+class LoginIdChangeForm(FlaskForm):
+    """学籍番号（ログインID）の変更。本人確認のため現在のパスワードも求める"""
+    new_username = StringField("新しい学籍番号（ログインID）", filters=[strip_filter],
+                               validators=LOGIN_ID_RULES)
+    current = PasswordField("現在のパスワード", validators=[
+        DataRequired(message="現在のパスワードを入力してください。")])
+    submit = SubmitField("変更する")
+
+
 # ---------- プロフィール ----------
 class ProfileForm(FlaskForm):
     display_name = StringField("氏名", filters=[strip_filter], validators=[
         DataRequired(message="氏名を入力してください。"), Length(max=64)])
-    student_no = StringField("学籍番号", filters=[strip_filter], validators=[Optional(), Length(max=32)])
     grade = StringField("学年", filters=[strip_filter], validators=[Optional(), Length(max=16)])
     pj_assignment = StringField("未来創造PJの配属", filters=[strip_filter],
                                 validators=[Optional(), Length(max=100)])

@@ -16,7 +16,7 @@ from flask_wtf.csrf import CSRFError, CSRFProtect
 from sqlalchemy import func, or_
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from forms import (DeleteForm, LoginForm, LogoutForm, MessageForm,
+from forms import (DeleteForm, LoginForm, LoginIdChangeForm, LogoutForm, MessageForm,
                    PasswordChangeForm, ProfileForm, RecordFilterForm,
                    RecordForm, SignupForm, WorkForm)
 from models import (ATTENDANCE_LABELS, CATEGORY_LABELS, ROLE_STUDENT,
@@ -175,6 +175,22 @@ def post_message(form, student, record=None, work=None):
     flash("メッセージを送信しました。", "success")
 
 
+def login_id_taken(login_id, exclude_user_id=None):
+    """そのIDがすでにログインIDか学籍番号として使われているか"""
+    query = User.query.filter(or_(User.username == login_id, User.student_no == login_id))
+    if exclude_user_id is not None:
+        query = query.filter(User.id != exclude_user_id)
+    return query.first() is not None
+
+
+def renew_session(user_id):
+    """セッションを作り直す（ログイン時やID・パスワード変更時。セッション固定化対策）"""
+    session.clear()
+    session.permanent = True
+    session["user_id"] = user_id
+    session["last_seen"] = datetime.now().timestamp()
+
+
 def save_upload(file_storage):
     """検証してから UUID の名前で保存する。戻り値：(保存名, 元のファイル名, 拡張子) / 失敗時 None"""
     ext = get_extension(file_storage.filename)
@@ -216,7 +232,10 @@ def login():
         return redirect(url_for("index"))
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(username=form.username.data.strip()).first()
+        login_id = form.username.data.strip()
+        # ログインID、または学籍番号で探す（学生は学籍番号＝ログインID）
+        user = (User.query.filter_by(username=login_id).first()
+                or User.query.filter_by(student_no=login_id).first())
         now = now_jst()
 
         if user is not None and user.locked_until and user.locked_until > now:
@@ -240,10 +259,7 @@ def login():
         user.locked_until = None
         db.session.commit()
 
-        session.clear()  # セッション固定化対策
-        session.permanent = True
-        session["user_id"] = user.id
-        session["last_seen"] = datetime.now().timestamp()
+        renew_session(user.id)  # セッション固定化対策
         flash(f"{user.display_name} さん、ようこそ。", "success")
         return redirect(url_for("index"))
     return render_template("login.html", form=form)
@@ -270,11 +286,12 @@ def signup():
                 (form.signup_code.data or "").encode(), app.config["SIGNUP_CODE"].encode()):
             flash("登録コードが違います。", "danger")
             return redirect(url_for("signup"))
-        if User.query.filter_by(username=form.username.data).first():
-            flash("このログインIDはすでに使われています。", "danger")
+        if login_id_taken(form.student_no.data):
+            flash("この学籍番号はすでに登録されています。", "danger")
             return redirect(url_for("signup"))
-        user = User(username=form.username.data, display_name=form.display_name.data,
-                    student_no=form.student_no.data or None, role=ROLE_STUDENT,
+        # 学籍番号をそのままログインIDにする
+        user = User(username=form.student_no.data, display_name=form.display_name.data,
+                    student_no=form.student_no.data, role=ROLE_STUDENT,
                     password_hash=generate_password_hash(form.password.data))
         db.session.add(user)
         db.session.commit()
@@ -293,14 +310,38 @@ def change_password():
             return redirect(url_for("change_password"))
         g.user.password_hash = generate_password_hash(form.password.data)
         db.session.commit()
-        user_id = g.user.id
-        session.clear()  # パスワード変更後はセッションを作り直す
-        session.permanent = True
-        session["user_id"] = user_id
-        session["last_seen"] = datetime.now().timestamp()
+        renew_session(g.user.id)  # パスワード変更後はセッションを作り直す
         flash("パスワードを変更しました。", "success")
         return redirect(url_for("index"))
     return render_template("password.html", form=form)
+
+
+@app.route("/account/login-id", methods=["GET", "POST"])
+@login_required
+def change_login_id():
+    """学籍番号（ログインID）の変更"""
+    form = LoginIdChangeForm()
+    if request.method == "GET":
+        form.new_username.data = g.user.username
+    if form.validate_on_submit():
+        if not check_password_hash(g.user.password_hash, form.current.data):
+            flash("現在のパスワードが違います。", "danger")
+            return redirect(url_for("change_login_id"))
+        new_id = form.new_username.data
+        if new_id == g.user.username:
+            flash("今と同じログインIDです。", "info")
+            return redirect(url_for("change_login_id"))
+        if login_id_taken(new_id, exclude_user_id=g.user.id):
+            flash("このログインID（学籍番号）はすでに使われています。", "danger")
+            return redirect(url_for("change_login_id"))
+        g.user.username = new_id
+        if g.user.is_student:
+            g.user.student_no = new_id  # 学生は学籍番号＝ログインID
+        db.session.commit()
+        renew_session(g.user.id)
+        flash(f"ログインIDを {new_id} に変更しました。次回からはこのIDでログインしてください。", "success")
+        return redirect(url_for("index"))
+    return render_template("login_id.html", form=form)
 
 
 # ---------- カルテ ----------
@@ -339,7 +380,7 @@ def edit_profile(student_id):
     form = ProfileForm(obj=g.user)
     if form.validate_on_submit():
         g.user.display_name = form.display_name.data
-        for field in ("student_no", "grade", "pj_assignment", "bio"):
+        for field in ("grade", "pj_assignment", "bio"):
             setattr(g.user, field, getattr(form, field).data or None)
         db.session.commit()
         flash("プロフィールを保存しました。", "success")
@@ -602,7 +643,7 @@ def init_db_command():
 
 
 @app.cli.command("create-user")
-@click.option("--username", prompt="ログインID")
+@click.option("--username", prompt="ログインID（学生なら学籍番号）")
 @click.option("--name", "display_name", prompt="氏名")
 @click.option("--role", type=click.Choice([ROLE_TEACHER, ROLE_STUDENT]), default=ROLE_TEACHER,
               show_default=True)
@@ -612,9 +653,10 @@ def create_user_command(username, display_name, role, password):
     db.create_all()
     if len(password) < 8:
         raise click.ClickException("パスワードは8文字以上にしてください。")
-    if User.query.filter_by(username=username).first():
+    if login_id_taken(username):
         raise click.ClickException("このログインIDはすでに使われています。")
     db.session.add(User(username=username, display_name=display_name, role=role,
+                        student_no=username if role == ROLE_STUDENT else None,
                         password_hash=generate_password_hash(password)))
     db.session.commit()
     click.echo(f"{role} アカウント {username} を作成しました。")

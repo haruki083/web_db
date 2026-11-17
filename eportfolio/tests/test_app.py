@@ -81,26 +81,69 @@ def test_account_lock_after_failures(client):
 
 
 def test_signup_password_policy_and_success(client):
-    weak = client.post("/signup", data={"username": "carol", "display_name": "キャロル",
+    weak = client.post("/signup", data={"student_no": "s2522099", "display_name": "キャロル",
                                         "password": "short", "confirm": "short"})
     assert "8〜128文字" in weak.get_data(as_text=True)
-    res = client.post("/signup", data={"username": "carol", "display_name": "キャロル",
+    res = client.post("/signup", data={"student_no": "s2522099", "display_name": "キャロル",
                                        "password": "abcd1234", "confirm": "abcd1234"},
                       follow_redirects=True)
     assert "登録しました" in res.get_data(as_text=True)
     with app.app_context():
-        user = User.query.filter_by(username="carol").first()
-        assert user.role == "student"
+        user = User.query.filter_by(username="s2522099").first()
+        assert user.role == "student" and user.student_no == "s2522099"
         assert user.password_hash != "abcd1234"
 
 
 def test_signup_code_required_when_configured(client):
     app.config["SIGNUP_CODE"] = "secret-code"
-    data = {"username": "dave", "display_name": "デイブ", "password": "abcd1234", "confirm": "abcd1234"}
+    data = {"student_no": "s2522098", "display_name": "デイブ", "password": "abcd1234", "confirm": "abcd1234"}
     res = client.post("/signup", data=dict(data, signup_code="wrong"), follow_redirects=True)
     assert "登録コードが違います" in res.get_data(as_text=True)
     res = client.post("/signup", data=dict(data, signup_code="secret-code"), follow_redirects=True)
     assert "登録しました" in res.get_data(as_text=True)
+
+
+def test_login_with_student_no_after_signup(client):
+    client.post("/signup", data={"student_no": "s2522099", "display_name": "キャロル",
+                                 "password": "abcd1234", "confirm": "abcd1234"})
+    res = login(client, "s2522099", "abcd1234")
+    assert "キャロル さんのカルテ" in res.get_data(as_text=True)
+    dup = client.post("/logout") and client.post(
+        "/signup", data={"student_no": "s2522099", "display_name": "別人",
+                         "password": "abcd1234", "confirm": "abcd1234"}, follow_redirects=True)
+    assert "すでに登録されています" in dup.get_data(as_text=True)
+
+
+def test_change_login_id(client):
+    login(client, "alice")
+    res = client.post("/account/login-id", data={"new_username": "s2522100", "current": "wrong"},
+                      follow_redirects=True)
+    assert "現在のパスワードが違います" in res.get_data(as_text=True)
+    res = client.post("/account/login-id", data={"new_username": "bob", "current": "password123"},
+                      follow_redirects=True)
+    assert "すでに使われています" in res.get_data(as_text=True)
+    res = client.post("/account/login-id", data={"new_username": "bad id!", "current": "password123"},
+                      follow_redirects=True)
+    assert "半角英数字" in res.get_data(as_text=True)
+    res = client.post("/account/login-id", data={"new_username": "s2522100", "current": "password123"},
+                      follow_redirects=True)
+    assert "s2522100 に変更しました" in res.get_data(as_text=True)
+    with app.app_context():
+        user = db.session.get(User, uid("s2522100"))
+        assert user.student_no == "s2522100"
+    client.post("/logout")
+    assert "ログインIDまたはパスワードが違います" in login(client, "alice").get_data(as_text=True)
+    assert "アリス さんのカルテ" in login(client, "s2522100").get_data(as_text=True)
+
+
+def test_change_password_then_login(client):
+    login(client, "alice")
+    res = client.post("/account/password", data={"current": "password123", "password": "newpass99",
+                                                 "confirm": "newpass99"}, follow_redirects=True)
+    assert "パスワードを変更しました" in res.get_data(as_text=True)
+    client.post("/logout")
+    assert "ログインIDまたはパスワードが違います" in login(client, "alice").get_data(as_text=True)
+    assert "アリス さんのカルテ" in login(client, "alice", "newpass99").get_data(as_text=True)
 
 
 # ---------- 記録 ----------
