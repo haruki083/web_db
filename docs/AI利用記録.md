@@ -103,6 +103,23 @@
   - 新しいIDが、他の人のログインIDや学籍番号と重なっていないか確認する
 - 自分の作業への反映: （どこを理解し、どこを自分で変更・追加したかを記入）
 
+## #9 ログイン画面からのパスワード再設定（パスワードを忘れたとき）
+- 日時: 2026-11-17
+- プロンプト（原文）:
+  > 最初のログイン画面からもパスワード忘れたときに変えられるようにして
+- AIが変更したもの:
+  - eportfolio/models.py（PasswordResetRequest・PasswordResetToken を追加）
+  - eportfolio/forms.py（ResetRequestForm・PasswordResetForm・ActionForm を追加）
+  - eportfolio/app.py（password_forgot・password_reset・issue_reset_code、reset-password コマンド、起動時の db.create_all）
+  - eportfolio/templates/password_forgot.html・password_reset.html・reset_code_issued.html（新規）、login.html・_karte_header.html・teacher_students.html
+  - eportfolio/tests/test_app.py（テスト4件を追加）
+- 得た知識・ヒント（自分の言葉で書き直すこと）:
+  - メールが使えないので、教員が発行する再設定コードで本人確認する
+  - コードはパスワードと同じようにハッシュで保存し、有効期限・1回限り・入力ミスの回数制限を付ける
+  - 「そのIDは存在しません」と表示すると登録済みのIDを調べられてしまうので、依頼画面は常に同じメッセージにする
+  - flash で渡すとコードがセッションCookieに平文で入るので、コードは発行した画面に直接表示する
+- 自分の作業への反映: （どこを理解し、どこを自分で変更・追加したかを記入）
+
 ---
 <!-- テンプレート
 ## #N タイトル

@@ -76,6 +76,13 @@ class User(db.Model):
     def is_student(self):
         return self.role == ROLE_STUDENT
 
+    @property
+    def pending_reset_request(self):
+        """未対応のパスワードリセット依頼（なければ None）"""
+        return (PasswordResetRequest.query
+                .filter_by(user_id=self.id, resolved_at=None)
+                .order_by(PasswordResetRequest.id.desc()).first())
+
     def __repr__(self):
         return f"<User {self.id}:{self.username}>"
 
@@ -163,3 +170,35 @@ class Message(db.Model):
 
     def __repr__(self):
         return f"<Message {self.id}>"
+
+
+class PasswordResetRequest(db.Model):
+    """ログイン画面から送られた「パスワードを忘れた」依頼（教員が確認する）"""
+    __tablename__ = "password_reset_requests"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"),
+                        nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=now_jst)
+    resolved_at = db.Column(db.DateTime)  # 教員がコードを発行した時刻
+
+    user = db.relationship("User", foreign_keys=[user_id])
+
+
+class PasswordResetToken(db.Model):
+    """教員が発行するパスワード再設定コード（1回限り・有効期限付き。コードはハッシュで保存）"""
+    __tablename__ = "password_reset_tokens"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"),
+                        nullable=False, index=True)
+    code_hash = db.Column(db.String(255), nullable=False)
+    created_by_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"))
+    expires_at = db.Column(db.DateTime, nullable=False)
+    failed_attempts = db.Column(db.Integer, nullable=False, default=0)
+    used_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, nullable=False, default=now_jst)
+
+    user = db.relationship("User", foreign_keys=[user_id])
+    created_by = db.relationship("User", foreign_keys=[created_by_id])
+

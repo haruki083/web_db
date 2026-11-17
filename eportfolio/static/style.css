@@ -17,3 +17,4 @@
 .cat-other      { background-color: #6c757d; color: #fff; }
 
 #attendance-field.d-none { display: none; }
+.reset-code { letter-spacing: 0.15em; }

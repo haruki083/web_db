@@ -1,0 +1,27 @@
+{# [AI生成] Claudeが作成（AI利用記録 #9） #}
+{% extends "base.html" %}
+{% import "_macros.html" as ui with context %}
+{% block title %}再設定コードを発行しました{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <h1 class="h4 mb-3">{{ student.display_name }} さんの再設定コード</h1>
+    <div class="card mb-3">
+      <div class="card-body text-center">
+        <div class="display-6 font-monospace reset-code">{{ code }}</div>
+        <div class="small text-muted mt-2">
+          学籍番号（ログインID）：{{ student.username }} ／ 有効期限：{{ expires_at.strftime('%Y/%m/%d %H:%M') }}
+        </div>
+      </div>
+    </div>
+    <div class="alert alert-warning small">
+      <ul class="mb-0">
+        <li>このコードは<strong>この画面でしか表示されません</strong>。本人に、対面などの確実な方法で伝えてください。</li>
+        <li>学生はログイン画面の「パスワードを忘れた場合」→「再設定コードを持っている場合」から使います。</li>
+        <li>コードは1回だけ使えます。もう一度発行すると、このコードは使えなくなります。</li>
+      </ul>
+    </div>
+    <a class="btn btn-primary" href="{{ url_for('karte', student_id=student.id) }}">カルテに戻る</a>
+  </div>
+</div>
+{% endblock %}
