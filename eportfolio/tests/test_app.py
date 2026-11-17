@@ -1,7 +1,5 @@
 # [AI生成] Claudeが作成（AI利用記録 #7）
 # 自分で変更・追加した箇所には「# [自作]」コメントを付けること。
-# tests/test_app.py
-# 実行方法（eportfolio フォルダで）:  python -m pytest -q
 import io
 import os
 import sys
@@ -16,10 +14,10 @@ os.environ["UPLOAD_FOLDER"] = os.path.join(_TMP, "uploads")
 os.environ["SECRET_KEY"] = "test-secret-key"
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from werkzeug.security import generate_password_hash  # noqa: E402
+from werkzeug.security import generate_password_hash
 
-from app import app  # noqa: E402
-from models import (Message, PasswordResetRequest, PasswordResetToken,  # noqa: E402
+from app import app
+from models import (Message, PasswordResetRequest, PasswordResetToken,
                     Record, User, Work, db)
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
@@ -58,7 +56,6 @@ def add_record(c, **kw):
     return c.post("/records/new", data=data, follow_redirects=True)
 
 
-# ---------- 認証 ----------
 def test_login_and_logout(client):
     res = login(client, "alice")
     assert "アリス さんのカルテ" in res.get_data(as_text=True)
@@ -77,7 +74,7 @@ def test_login_error_message_is_generic(client):
 def test_account_lock_after_failures(client):
     for _ in range(5):
         login(client, "alice", "wrong")
-    res = login(client, "alice")  # 正しいパスワードでもロック中
+    res = login(client, "alice")
     assert "しばらくログインできません" in res.get_data(as_text=True)
 
 
@@ -147,9 +144,7 @@ def test_change_password_then_login(client):
     assert "アリス さんのカルテ" in login(client, "alice", "newpass99").get_data(as_text=True)
 
 
-# ---------- パスワードを忘れたとき ----------
 def issue_code(c, student="alice"):
-    """教員としてコードを発行し、画面に表示されたコードを返す"""
     login(c, "teacher")
     html = c.post(f"/teacher/students/{uid(student)}/reset-code").get_data(as_text=True)
     c.post("/logout")
@@ -167,7 +162,6 @@ def test_forgot_password_full_flow(client):
     assert "パスワードを忘れた場合" in client.get("/login").get_data(as_text=True)
     res = client.post("/password/forgot", data={"login_id": "alice"}, follow_redirects=True)
     assert "リセットを依頼しました" in res.get_data(as_text=True)
-    # 存在しないIDでも同じメッセージ（IDの有無を知られないため）
     res = client.post("/password/forgot", data={"login_id": "nobody"}, follow_redirects=True)
     assert "リセットを依頼しました" in res.get_data(as_text=True)
     with app.app_context():
@@ -181,13 +175,12 @@ def test_forgot_password_full_flow(client):
     with app.app_context():
         assert PasswordResetRequest.query.filter_by(resolved_at=None).count() == 0
         token = PasswordResetToken.query.first()
-        assert code.replace("-", "") not in token.code_hash  # 平文では保存しない
+        assert code.replace("-", "") not in token.code_hash
 
-    res = reset(client, "alice", code.lower())  # 小文字でも受け付ける
+    res = reset(client, "alice", code.lower())
     assert "パスワードを再設定しました" in res.get_data(as_text=True)
     assert "アリス さんのカルテ" in login(client, "alice", "newpass99").get_data(as_text=True)
     client.post("/logout")
-    # 同じコードは2回使えない
     assert "コードの有効期限が切れています" in reset(client, "alice", code, "another99").get_data(as_text=True)
 
 
@@ -196,7 +189,6 @@ def test_reset_code_wrong_user_and_attempt_limit(client):
     assert "コードの有効期限が切れています" in reset(client, "bob", code).get_data(as_text=True)
     for _ in range(5):
         reset(client, "alice", "WRNG-CODE")
-    # 5回間違えたらコードは無効になる
     assert "コードの有効期限が切れています" in reset(client, "alice", code).get_data(as_text=True)
 
 
@@ -219,7 +211,6 @@ def test_only_teacher_can_issue_reset_code(client):
         assert PasswordResetToken.query.count() == 0
 
 
-# ---------- 記録 ----------
 def test_student_records_and_attendance_validation(client):
     login(client, "alice")
     res = add_record(client, category="attendance", title="第1回")
@@ -280,7 +271,6 @@ def test_student_cannot_open_teacher_pages(client):
     assert client.get("/teacher/students").status_code == 403
 
 
-# ---------- 対話 ----------
 def test_dialogue_and_unread(client):
     alice = uid("alice")
     login(client, "teacher")
@@ -303,7 +293,6 @@ def test_dialogue_and_unread(client):
         assert Message.query.count() == 2
 
 
-# ---------- 作品 ----------
 def test_work_upload_and_access_control(client):
     login(client, "alice")
     res = client.post("/works/new", data={"title": "ポスター", "description": "",
@@ -350,7 +339,6 @@ def test_work_link_only(client):
     assert "どちらかを登録してください" in res.get_data(as_text=True)
 
 
-# ---------- セキュリティ全般 ----------
 def test_security_headers(client):
     res = client.get("/login")
     assert "default-src 'self'" in res.headers["Content-Security-Policy"]

@@ -1,7 +1,5 @@
 /* [AI生成] Claudeが作成（AI利用記録 #7） */
-// script.js（CSPに対応するため、インラインJavaScriptは使わずこのファイルにまとめる）
 document.addEventListener("DOMContentLoaded", function () {
-  // 削除などの確認ダイアログ
   document.querySelectorAll("form[data-confirm]").forEach(function (form) {
     form.addEventListener("submit", function (e) {
       if (!window.confirm(form.dataset.confirm)) {
@@ -10,7 +8,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
-  // 二重送信防止：送信したらボタンを一時的に無効化する
   document.querySelectorAll("form").forEach(function (form) {
     form.addEventListener("submit", function (e) {
       if (e.defaultPrevented) return;
@@ -31,7 +28,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
-  // 記録フォーム：種類が「出席」のときだけ出欠欄を表示
   var category = document.getElementById("category");
   var attendance = document.getElementById("attendance-field");
   if (category && attendance) {

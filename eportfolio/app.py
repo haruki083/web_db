@@ -1,9 +1,5 @@
 # [AI生成] Claudeが作成（AI利用記録 #7）
 # 自分で変更・追加した箇所には「# [自作]」コメントを付けること。
-# app.py
-# eポートフォリオ（カルテ）システム
-#   - 学生：日々の情報（出席・授業チャンネルへの書き込み・未来創造PJ・活動の様子）と作品を記録する
-#   - 教員：学生のカルテを閲覧し、学生と対話する
 import os
 import secrets
 from datetime import date, datetime, timedelta
@@ -32,9 +28,7 @@ app = Flask(__name__, instance_path=os.path.join(BASE_DIR, "instance"))
 os.makedirs(app.instance_path, exist_ok=True)
 
 
-# ---------- 設定 ----------
 def load_secret_key():
-    """SECRET_KEY は環境変数を優先。無ければ instance/secret_key にランダム値を作って保存する。"""
     key = os.environ.get("SECRET_KEY")
     if key:
         return key
@@ -54,32 +48,28 @@ app.config.update(
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
     UPLOAD_FOLDER=os.environ.get("UPLOAD_FOLDER", os.path.join(app.instance_path, "uploads")),
     MAX_CONTENT_LENGTH=10 * 1024 * 1024,  # 10MB
-    # セッションCookieの安全設定（セッションハイジャック対策）
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "0") == "1",  # 本番(HTTPS)では1
+    SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "0") == "1",
     PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
-    SESSION_IDLE_TIMEOUT=int(os.environ.get("SESSION_IDLE_TIMEOUT", 30 * 60)),  # 無操作30分でログアウト
-    SIGNUP_CODE=os.environ.get("SIGNUP_CODE", ""),  # 設定すると学生登録に登録コードが必要
+    SESSION_IDLE_TIMEOUT=int(os.environ.get("SESSION_IDLE_TIMEOUT", 30 * 60)),
+    SIGNUP_CODE=os.environ.get("SIGNUP_CODE", ""),
     MAX_LOGIN_FAILURES=5,
     LOCK_MINUTES=10,
     PER_PAGE=20,
-    RESET_CODE_HOURS=24,        # パスワード再設定コードの有効期限（時間）
-    RESET_CODE_MAX_ATTEMPTS=5,  # 再設定コードの入力ミスの上限（超えたらコードは無効）
+    RESET_CODE_HOURS=24,
+    RESET_CODE_MAX_ATTEMPTS=5,
 )
 
 csrf = CSRFProtect(app)
 db.init_app(app)
 
-# 足りないテーブルがあれば作る（既存のテーブルやデータは消さない）
 with app.app_context():
     db.create_all()
 
-# 存在しないユーザーでログインされたときも同じ時間がかかるようにするためのダミー
 _DUMMY_HASH = generate_password_hash("dummy-password-for-timing")
 
 
-# ---------- リクエストごとの共通処理 ----------
 @app.before_request
 def load_user_and_check_timeout():
     g.user = None
@@ -96,7 +86,7 @@ def load_user_and_check_timeout():
     session["last_seen"] = now
 
     g.user = db.session.get(User, user_id)
-    if g.user is None:  # 削除されたユーザー
+    if g.user is None:
         session.clear()
 
 
@@ -118,9 +108,7 @@ def inject_globals():
     }
 
 
-# ---------- 補助関数 ----------
 def get_student_or_404(student_id):
-    """閲覧権限を確認してから学生を返す（他人のカルテは404にして存在も知らせない）"""
     if not can_view_student(g.user, student_id):
         abort(404)
     student = db.session.get(User, student_id)
@@ -144,13 +132,11 @@ def get_work_or_404(work_id):
 
 
 def require_owner(student_id):
-    """編集・削除は本人（学生）だけ"""
     if g.user.id != student_id:
         abort(403)
 
 
 def unread_filter_for(user):
-    """user から見て未読のメッセージ（相手が書いたもの）の条件"""
     if user.is_teacher:
         return [Message.author_id == Message.student_id, Message.read_at.is_(None)]
     return [Message.student_id == user.id, Message.author_id != user.id, Message.read_at.is_(None)]
@@ -161,7 +147,6 @@ def unread_count_for(user):
 
 
 def mark_read(messages):
-    """表示したメッセージのうち、相手が書いた未読のものを既読にする"""
     changed = False
     for m in messages:
         if m.read_at is not None:
@@ -183,12 +168,10 @@ def post_message(form, student, record=None, work=None):
 
 
 def find_user_by_login_id(login_id):
-    """ログインID、または学籍番号でユーザーを探す（学生は学籍番号＝ログインID）"""
     return (User.query.filter_by(username=login_id).first()
             or User.query.filter_by(student_no=login_id).first())
 
 
-# 再設定コードに使う文字（0とO、1とIなど見間違えやすい文字は除く）
 RESET_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 
@@ -197,7 +180,6 @@ def normalize_reset_code(code):
 
 
 def login_id_taken(login_id, exclude_user_id=None):
-    """そのIDがすでにログインIDか学籍番号として使われているか"""
     query = User.query.filter(or_(User.username == login_id, User.student_no == login_id))
     if exclude_user_id is not None:
         query = query.filter(User.id != exclude_user_id)
@@ -205,7 +187,6 @@ def login_id_taken(login_id, exclude_user_id=None):
 
 
 def renew_session(user_id):
-    """セッションを作り直す（ログイン時やID・パスワード変更時。セッション固定化対策）"""
     session.clear()
     session.permanent = True
     session["user_id"] = user_id
@@ -213,7 +194,6 @@ def renew_session(user_id):
 
 
 def save_upload(file_storage):
-    """検証してから UUID の名前で保存する。戻り値：(保存名, 元のファイル名, 拡張子) / 失敗時 None"""
     ext = get_extension(file_storage.filename)
     if ext is None:
         flash("このファイル形式はアップロードできません。", "danger")
@@ -236,7 +216,6 @@ def delete_upload(file_name):
         os.remove(path)
 
 
-# ---------- トップ ----------
 @app.route("/")
 def index():
     if g.user is None:
@@ -246,7 +225,6 @@ def index():
     return redirect(url_for("karte", student_id=g.user.id))
 
 
-# ---------- 認証 ----------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if g.user is not None:
@@ -269,7 +247,6 @@ def login():
                     user.locked_until = now + timedelta(minutes=app.config["LOCK_MINUTES"])
                     user.failed_login_count = 0
                 db.session.commit()
-            # どちらが間違っているかは教えない
             flash("ログインIDまたはパスワードが違います。", "danger")
             return redirect(url_for("login"))
 
@@ -277,7 +254,7 @@ def login():
         user.locked_until = None
         db.session.commit()
 
-        renew_session(user.id)  # セッション固定化対策
+        renew_session(user.id)
         flash(f"{user.display_name} さん、ようこそ。", "success")
         return redirect(url_for("index"))
     return render_template("login.html", form=form)
@@ -294,7 +271,6 @@ def logout():
 
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
-    """学生の新規登録（教員アカウントはコマンドで作成する）"""
     if g.user is not None:
         return redirect(url_for("index"))
     form = SignupForm()
@@ -307,7 +283,6 @@ def signup():
         if login_id_taken(form.student_no.data):
             flash("この学籍番号はすでに登録されています。", "danger")
             return redirect(url_for("signup"))
-        # 学籍番号をそのままログインIDにする
         user = User(username=form.student_no.data, display_name=form.display_name.data,
                     student_no=form.student_no.data, role=ROLE_STUDENT,
                     password_hash=generate_password_hash(form.password.data))
@@ -328,17 +303,12 @@ def change_password():
             return redirect(url_for("change_password"))
         g.user.password_hash = generate_password_hash(form.password.data)
         db.session.commit()
-        renew_session(g.user.id)  # パスワード変更後はセッションを作り直す
+        renew_session(g.user.id)
         flash("パスワードを変更しました。", "success")
         return redirect(url_for("index"))
     return render_template("password.html", form=form)
 
 
-# ---------- パスワードを忘れたとき ----------
-# メールは使わず、教員が発行する「再設定コード」で本人確認する。
-#   1. 学生がログイン画面から依頼する（/password/forgot）
-#   2. 教員がカルテ画面でコードを発行し、対面などで学生に渡す
-#   3. 学生がコードと新しいパスワードを入力する（/password/reset）
 @app.route("/password/forgot", methods=["GET", "POST"])
 def password_forgot():
     if g.user is not None:
@@ -349,7 +319,6 @@ def password_forgot():
         if user is not None and user.is_student and user.pending_reset_request is None:
             db.session.add(PasswordResetRequest(user_id=user.id))
             db.session.commit()
-        # 登録されているIDかどうかが分からないよう、常に同じメッセージを出す
         flash("リセットを依頼しました。教員から再設定コードを受け取ったら、"
               "「再設定コードを持っている場合」から新しいパスワードを設定してください。", "info")
         return redirect(url_for("password_forgot"))
@@ -375,7 +344,7 @@ def password_reset():
             if token is not None:
                 token.failed_attempts += 1
                 if token.failed_attempts >= app.config["RESET_CODE_MAX_ATTEMPTS"]:
-                    token.used_at = now_jst()  # 総当たりされないよう、ミスが続いたコードは無効にする
+                    token.used_at = now_jst()
                 db.session.commit()
             flash("学籍番号（ログインID）または再設定コードが違うか、コードの有効期限が切れています。", "danger")
             return redirect(url_for("password_reset"))
@@ -393,12 +362,10 @@ def password_reset():
 @app.route("/teacher/students/<int:student_id>/reset-code", methods=["POST"])
 @teacher_required
 def issue_reset_code(student_id):
-    """教員が学生のパスワード再設定コードを発行する"""
     student = get_student_or_404(student_id)
     if not ActionForm().validate_on_submit():
         abort(400)
     now = now_jst()
-    # 以前に発行した未使用のコードは無効にする
     PasswordResetToken.query.filter_by(user_id=student.id, used_at=None).update({"used_at": now})
     code = "".join(secrets.choice(RESET_CODE_ALPHABET) for _ in range(8))
     token = PasswordResetToken(user_id=student.id, created_by_id=g.user.id,
@@ -407,8 +374,6 @@ def issue_reset_code(student_id):
     db.session.add(token)
     PasswordResetRequest.query.filter_by(user_id=student.id, resolved_at=None).update({"resolved_at": now})
     db.session.commit()
-    # コードは DB にハッシュでしか残らないため、この画面で一度だけ表示する
-    # （flash で渡すとセッションCookieに平文で入ってしまうので、リダイレクトせずに表示する）
     return render_template("reset_code_issued.html", student=student,
                            code=f"{code[:4]}-{code[4:]}", expires_at=token.expires_at)
 
@@ -416,7 +381,6 @@ def issue_reset_code(student_id):
 @app.route("/account/login-id", methods=["GET", "POST"])
 @login_required
 def change_login_id():
-    """学籍番号（ログインID）の変更"""
     form = LoginIdChangeForm()
     if request.method == "GET":
         form.new_username.data = g.user.username
@@ -433,7 +397,7 @@ def change_login_id():
             return redirect(url_for("change_login_id"))
         g.user.username = new_id
         if g.user.is_student:
-            g.user.student_no = new_id  # 学生は学籍番号＝ログインID
+            g.user.student_no = new_id
         db.session.commit()
         renew_session(g.user.id)
         flash(f"ログインIDを {new_id} に変更しました。次回からはこのIDでログインしてください。", "success")
@@ -441,7 +405,6 @@ def change_login_id():
     return render_template("login_id.html", form=form)
 
 
-# ---------- カルテ ----------
 @app.route("/karte/<int:student_id>")
 @login_required
 def karte(student_id):
@@ -485,7 +448,6 @@ def edit_profile(student_id):
     return render_template("profile_form.html", form=form)
 
 
-# ---------- 記録 ----------
 @app.route("/records/new", methods=["GET", "POST"])
 @student_required
 def record_new():
@@ -547,7 +509,6 @@ def record_delete(record_id):
     return redirect(url_for("karte", student_id=g.user.id))
 
 
-# ---------- 作品 ----------
 @app.route("/karte/<int:student_id>/works")
 @login_required
 def works(student_id):
@@ -613,7 +574,7 @@ def work_edit(work_id):
             saved = save_upload(file)
             if saved is None:
                 return render_template("work_form.html", form=form, work=work)
-            delete_upload(work.file_name)  # 古いファイルは消す
+            delete_upload(work.file_name)
             work.file_name, work.original_name, work.file_type = saved
         work.title = form.title.data
         work.description = form.description.data or None
@@ -641,7 +602,6 @@ def work_delete(work_id):
 @app.route("/works/<int:work_id>/file")
 @login_required
 def work_file(work_id):
-    """作品ファイルは公開フォルダに置かず、権限を確認してから返す"""
     work = get_work_or_404(work_id)
     if not work.file_name:
         abort(404)
@@ -653,7 +613,6 @@ def work_file(work_id):
     return response
 
 
-# ---------- 対話 ----------
 @app.route("/karte/<int:student_id>/messages", methods=["GET", "POST"])
 @login_required
 def messages(student_id):
@@ -669,7 +628,6 @@ def messages(student_id):
                            messages=thread, form=form)
 
 
-# ---------- 教員 ----------
 @app.route("/teacher/students")
 @teacher_required
 def teacher_students():
@@ -703,7 +661,6 @@ def teacher_students():
                            work_counts=work_counts, unread=unread, reset_requests=reset_requests)
 
 
-# ---------- エラー ----------
 @app.errorhandler(CSRFError)
 def handle_csrf_error(e):
     flash("フォームの有効期限が切れたか、不正な送信です。もう一度操作してください。", "danger")
@@ -732,10 +689,8 @@ def server_error(e):
     return render_template("errors/error.html", code=500, message="サーバーでエラーが発生しました。"), 500
 
 
-# ---------- 管理コマンド ----------
 @app.cli.command("init-db")
 def init_db_command():
-    """テーブルを作成する（既存のデータは消さない）"""
     db.create_all()
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
     click.echo("データベースを初期化しました。")
@@ -748,7 +703,6 @@ def init_db_command():
               show_default=True)
 @click.password_option("--password", prompt="パスワード")
 def create_user_command(username, display_name, role, password):
-    """教員（または学生）アカウントを作成する"""
     db.create_all()
     if len(password) < 8:
         raise click.ClickException("パスワードは8文字以上にしてください。")
@@ -765,7 +719,6 @@ def create_user_command(username, display_name, role, password):
 @click.option("--username", prompt="ログインID（学生なら学籍番号）")
 @click.password_option("--password", prompt="新しいパスワード")
 def reset_password_command(username, password):
-    """パスワードを直接再設定する（教員がパスワードを忘れたときなど）"""
     if len(password) < 8:
         raise click.ClickException("パスワードは8文字以上にしてください。")
     user = find_user_by_login_id(username)
@@ -780,7 +733,6 @@ def reset_password_command(username, password):
 
 @app.cli.command("seed-demo")
 def seed_demo_command():
-    """動作確認用のサンプルデータを入れる（パスワードはすべて password123）"""
     db.create_all()
     if User.query.first():
         raise click.ClickException("すでにデータがあります。空のデータベースで実行してください。")

@@ -1,5 +1,4 @@
 {# [AI生成] Claudeが作成（AI利用記録 #7） #}
-{# 共通マクロ #}
 
 {% macro flashes() %}
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -32,7 +31,6 @@
 {% endmacro %}
 
 {% macro text_body(text) %}
-  {# 改行を保ったまま表示（HTMLは自動エスケープされる） #}
   <div class="pre-wrap">{{ text }}</div>
 {% endmacro %}
 

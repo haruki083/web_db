@@ -1,27 +1,21 @@
 # [AI生成] Claudeが作成（AI利用記録 #7）
 # 自分で変更・追加した箇所には「# [自作]」コメントを付けること。
-# models.py
-# eポートフォリオ（カルテ）システムのデータモデル（Flask-SQLAlchemy / ORM）
 from datetime import datetime, timedelta, timezone
 
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
-# 日本時間（Windows でも tzdata 不要な固定オフセット）
 JST = timezone(timedelta(hours=9))
 
 
 def now_jst():
-    """DB保存用の現在時刻（JST・タイムゾーン情報なし）"""
     return datetime.now(JST).replace(tzinfo=None)
 
 
-# ---------- 定数 ----------
 ROLE_STUDENT = "student"
 ROLE_TEACHER = "teacher"
 
-# 記録の種類（カルテに書く日々の情報）
 CATEGORIES = [
     ("attendance", "出席"),
     ("slack", "授業チャンネルへの書き込み"),
@@ -49,13 +43,11 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(16), nullable=False, default=ROLE_STUDENT)
 
-    # 学生プロフィール
     student_no = db.Column(db.String(32))
     grade = db.Column(db.String(16))
-    pj_assignment = db.Column(db.String(100))  # 未来創造PJの配属
+    pj_assignment = db.Column(db.String(100))
     bio = db.Column(db.Text)
 
-    # ログイン試行回数の制限（ブルートフォース対策）
     failed_login_count = db.Column(db.Integer, nullable=False, default=0)
     locked_until = db.Column(db.DateTime)
 
@@ -78,7 +70,6 @@ class User(db.Model):
 
     @property
     def pending_reset_request(self):
-        """未対応のパスワードリセット依頼（なければ None）"""
         return (PasswordResetRequest.query
                 .filter_by(user_id=self.id, resolved_at=None)
                 .order_by(PasswordResetRequest.id.desc()).first())
@@ -88,7 +79,6 @@ class User(db.Model):
 
 
 class Record(db.Model):
-    """カルテの1件の記録（出席・Slack書き込み・PJ・活動の様子など）"""
     __tablename__ = "records"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -96,11 +86,11 @@ class Record(db.Model):
                            nullable=False, index=True)
     category = db.Column(db.String(16), nullable=False, index=True)
     record_date = db.Column(db.Date, nullable=False, index=True)
-    course = db.Column(db.String(100))        # 授業名・チャンネル名・PJ名など
+    course = db.Column(db.String(100))
     title = db.Column(db.String(200), nullable=False)
     body = db.Column(db.Text)
-    attendance_status = db.Column(db.String(16))  # category=attendance のときのみ
-    link_url = db.Column(db.String(500))      # Slack のメッセージリンクなど
+    attendance_status = db.Column(db.String(16))
+    link_url = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, nullable=False, default=now_jst)
     updated_at = db.Column(db.DateTime, nullable=False, default=now_jst, onupdate=now_jst)
 
@@ -121,7 +111,6 @@ class Record(db.Model):
 
 
 class Work(db.Model):
-    """学生の作品（ファイル）または外部リンク"""
     __tablename__ = "works"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -130,8 +119,8 @@ class Work(db.Model):
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
     external_url = db.Column(db.String(500))
-    file_name = db.Column(db.String(100))      # 保存名（UUID）
-    original_name = db.Column(db.String(255))  # 表示用の元ファイル名
+    file_name = db.Column(db.String(100))
+    original_name = db.Column(db.String(255))
     file_type = db.Column(db.String(10))
     created_at = db.Column(db.DateTime, nullable=False, default=now_jst)
     updated_at = db.Column(db.DateTime, nullable=False, default=now_jst, onupdate=now_jst)
@@ -149,18 +138,17 @@ class Work(db.Model):
 
 
 class Message(db.Model):
-    """学生と教員の対話（カルテ全体、または特定の記録・作品へのコメント）"""
     __tablename__ = "messages"
 
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"),
-                           nullable=False, index=True)  # どの学生のカルテか
+                           nullable=False, index=True)
     author_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"),
                           nullable=False)
     record_id = db.Column(db.Integer, db.ForeignKey("records.id", ondelete="CASCADE"))
     work_id = db.Column(db.Integer, db.ForeignKey("works.id", ondelete="CASCADE"))
     body = db.Column(db.Text, nullable=False)
-    read_at = db.Column(db.DateTime)  # 相手側（学生 or 教員）が読んだ時刻
+    read_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, nullable=False, default=now_jst)
 
     author = db.relationship("User", foreign_keys=[author_id])
@@ -173,20 +161,18 @@ class Message(db.Model):
 
 
 class PasswordResetRequest(db.Model):
-    """ログイン画面から送られた「パスワードを忘れた」依頼（教員が確認する）"""
     __tablename__ = "password_reset_requests"
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"),
                         nullable=False, index=True)
     created_at = db.Column(db.DateTime, nullable=False, default=now_jst)
-    resolved_at = db.Column(db.DateTime)  # 教員がコードを発行した時刻
+    resolved_at = db.Column(db.DateTime)
 
     user = db.relationship("User", foreign_keys=[user_id])
 
 
 class PasswordResetToken(db.Model):
-    """教員が発行するパスワード再設定コード（1回限り・有効期限付き。コードはハッシュで保存）"""
     __tablename__ = "password_reset_tokens"
 
     id = db.Column(db.Integer, primary_key=True)

@@ -1,6 +1,5 @@
 # [AI生成] Claudeが作成（AI利用記録 #7）
 # 自分で変更・追加した箇所には「# [自作]」コメントを付けること。
-# forms.py
 from urllib.parse import urlparse
 
 from flask_wtf import FlaskForm
@@ -15,7 +14,6 @@ from security import ALLOWED_EXTENSIONS
 
 
 def safe_url(form, field):
-    """http/https 以外（javascript: など）のURLを拒否する（XSS対策）"""
     if not field.data:
         return
     parsed = urlparse(field.data.strip())
@@ -27,7 +25,6 @@ def strip_filter(value):
     return value.strip() if isinstance(value, str) else value
 
 
-# ---------- 認証 ----------
 class LoginForm(FlaskForm):
     username = StringField("学籍番号（教員はログインID）", validators=[
         DataRequired(message="学籍番号（ログインID）を入力してください。"), Length(max=64)])
@@ -40,7 +37,6 @@ class LogoutForm(FlaskForm):
     submit = SubmitField("ログアウト")
 
 
-# 学籍番号（＝ログインID）の入力ルール
 LOGIN_ID_RULES = [
     DataRequired(message="学籍番号（ログインID）を入力してください。"),
     Length(min=3, max=32, message="学籍番号（ログインID）は3〜32文字で入力してください。"),
@@ -79,7 +75,6 @@ class PasswordChangeForm(FlaskForm):
 
 
 class LoginIdChangeForm(FlaskForm):
-    """学籍番号（ログインID）の変更。本人確認のため現在のパスワードも求める"""
     new_username = StringField("新しい学籍番号（ログインID）", filters=[strip_filter],
                                validators=LOGIN_ID_RULES)
     current = PasswordField("現在のパスワード", validators=[
@@ -88,14 +83,12 @@ class LoginIdChangeForm(FlaskForm):
 
 
 class ResetRequestForm(FlaskForm):
-    """ログイン画面から：教員にパスワードリセットを依頼する"""
     login_id = StringField("学籍番号（ログインID）", filters=[strip_filter], validators=[
         DataRequired(message="学籍番号（ログインID）を入力してください。"), Length(max=64)])
     submit = SubmitField("教員にリセットを依頼する")
 
 
 class PasswordResetForm(FlaskForm):
-    """ログイン画面から：教員にもらった再設定コードで新しいパスワードを設定する"""
     login_id = StringField("学籍番号（ログインID）", filters=[strip_filter], validators=[
         DataRequired(message="学籍番号（ログインID）を入力してください。"), Length(max=64)])
     code = StringField("再設定コード", filters=[strip_filter], validators=[
@@ -107,7 +100,6 @@ class PasswordResetForm(FlaskForm):
     submit = SubmitField("パスワードを再設定する")
 
 
-# ---------- プロフィール ----------
 class ProfileForm(FlaskForm):
     display_name = StringField("氏名", filters=[strip_filter], validators=[
         DataRequired(message="氏名を入力してください。"), Length(max=64)])
@@ -118,7 +110,6 @@ class ProfileForm(FlaskForm):
     submit = SubmitField("保存")
 
 
-# ---------- カルテの記録 ----------
 class RecordForm(FlaskForm):
     category = SelectField("種類", choices=CATEGORIES, validators=[DataRequired()])
     record_date = DateField("日付", validators=[DataRequired(message="日付を入力してください。")])
@@ -157,7 +148,6 @@ class RecordForm(FlaskForm):
 
 
 class RecordFilterForm(FlaskForm):
-    """一覧の絞り込み（GET。CSRF不要）"""
     class Meta:
         csrf = False
 
@@ -165,7 +155,6 @@ class RecordFilterForm(FlaskForm):
     q = StringField("キーワード", filters=[strip_filter], validators=[Optional(), Length(max=100)])
 
 
-# ---------- 作品 ----------
 class WorkForm(FlaskForm):
     title = StringField("作品名", filters=[strip_filter], validators=[
         DataRequired(message="作品名を入力してください。"), Length(max=200)])
@@ -178,7 +167,6 @@ class WorkForm(FlaskForm):
     submit = SubmitField("保存")
 
 
-# ---------- 対話 ----------
 class MessageForm(FlaskForm):
     body = TextAreaField("メッセージ", validators=[
         DataRequired(message="メッセージを入力してください。"),
@@ -187,9 +175,8 @@ class MessageForm(FlaskForm):
 
 
 class ActionForm(FlaskForm):
-    """ボタンだけのPOST操作用（CSRFトークンだけを持つ）"""
+    pass
 
 
 class DeleteForm(FlaskForm):
-    """削除ボタン用（CSRFトークンだけを持つ）"""
     submit = SubmitField("削除")
