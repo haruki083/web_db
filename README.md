@@ -51,3 +51,8 @@ static/style.css    デザイン
 uploads/            アップロードされたファイルの保存先（Git管理外）
 docs/               AI利用記録・参考文献
 ```
+
+## eポートフォリオシステム（eportfolio/）
+学生の日々の記録（出席・授業チャンネルへの書き込み・未来創造PJ・活動の様子）と作品を個人ごとのカルテに蓄積し、教員が閲覧・対話できるアプリです（Flask + Flask-SQLAlchemy + SQLite）。
+上記のポータルサイトとは独立したアプリです。セットアップと機能は [eportfolio/README.md](eportfolio/README.md) を参照してください（AI利用記録 #7）。
+
