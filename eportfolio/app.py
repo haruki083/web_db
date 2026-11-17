@@ -16,11 +16,12 @@ from flask_wtf.csrf import CSRFError, CSRFProtect
 from sqlalchemy import func, or_
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from forms import (DeleteForm, LoginForm, LoginIdChangeForm, LogoutForm, MessageForm,
-                   PasswordChangeForm, ProfileForm, RecordFilterForm,
-                   RecordForm, SignupForm, WorkForm)
+from forms import (ActionForm, DeleteForm, LoginForm, LoginIdChangeForm, LogoutForm,
+                   MessageForm, PasswordChangeForm, PasswordResetForm, ProfileForm,
+                   RecordFilterForm, RecordForm, ResetRequestForm, SignupForm, WorkForm)
 from models import (ATTENDANCE_LABELS, CATEGORY_LABELS, ROLE_STUDENT,
-                    ROLE_TEACHER, Message, Record, User, Work, db, now_jst)
+                    ROLE_TEACHER, Message, PasswordResetRequest, PasswordResetToken,
+                    Record, User, Work, db, now_jst)
 from security import (MIME_TYPES, can_view_student, content_matches_extension,
                       get_extension, login_required, set_security_headers,
                       student_required, teacher_required)
@@ -63,10 +64,16 @@ app.config.update(
     MAX_LOGIN_FAILURES=5,
     LOCK_MINUTES=10,
     PER_PAGE=20,
+    RESET_CODE_HOURS=24,        # パスワード再設定コードの有効期限（時間）
+    RESET_CODE_MAX_ATTEMPTS=5,  # 再設定コードの入力ミスの上限（超えたらコードは無効）
 )
 
 csrf = CSRFProtect(app)
 db.init_app(app)
+
+# 足りないテーブルがあれば作る（既存のテーブルやデータは消さない）
+with app.app_context():
+    db.create_all()
 
 # 存在しないユーザーでログインされたときも同じ時間がかかるようにするためのダミー
 _DUMMY_HASH = generate_password_hash("dummy-password-for-timing")
@@ -175,6 +182,20 @@ def post_message(form, student, record=None, work=None):
     flash("メッセージを送信しました。", "success")
 
 
+def find_user_by_login_id(login_id):
+    """ログインID、または学籍番号でユーザーを探す（学生は学籍番号＝ログインID）"""
+    return (User.query.filter_by(username=login_id).first()
+            or User.query.filter_by(student_no=login_id).first())
+
+
+# 再設定コードに使う文字（0とO、1とIなど見間違えやすい文字は除く）
+RESET_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def normalize_reset_code(code):
+    return "".join(ch for ch in (code or "").upper() if ch.isalnum())
+
+
 def login_id_taken(login_id, exclude_user_id=None):
     """そのIDがすでにログインIDか学籍番号として使われているか"""
     query = User.query.filter(or_(User.username == login_id, User.student_no == login_id))
@@ -232,10 +253,7 @@ def login():
         return redirect(url_for("index"))
     form = LoginForm()
     if form.validate_on_submit():
-        login_id = form.username.data.strip()
-        # ログインID、または学籍番号で探す（学生は学籍番号＝ログインID）
-        user = (User.query.filter_by(username=login_id).first()
-                or User.query.filter_by(student_no=login_id).first())
+        user = find_user_by_login_id(form.username.data.strip())
         now = now_jst()
 
         if user is not None and user.locked_until and user.locked_until > now:
@@ -314,6 +332,85 @@ def change_password():
         flash("パスワードを変更しました。", "success")
         return redirect(url_for("index"))
     return render_template("password.html", form=form)
+
+
+# ---------- パスワードを忘れたとき ----------
+# メールは使わず、教員が発行する「再設定コード」で本人確認する。
+#   1. 学生がログイン画面から依頼する（/password/forgot）
+#   2. 教員がカルテ画面でコードを発行し、対面などで学生に渡す
+#   3. 学生がコードと新しいパスワードを入力する（/password/reset）
+@app.route("/password/forgot", methods=["GET", "POST"])
+def password_forgot():
+    if g.user is not None:
+        return redirect(url_for("change_password"))
+    form = ResetRequestForm()
+    if form.validate_on_submit():
+        user = find_user_by_login_id(form.login_id.data)
+        if user is not None and user.is_student and user.pending_reset_request is None:
+            db.session.add(PasswordResetRequest(user_id=user.id))
+            db.session.commit()
+        # 登録されているIDかどうかが分からないよう、常に同じメッセージを出す
+        flash("リセットを依頼しました。教員から再設定コードを受け取ったら、"
+              "「再設定コードを持っている場合」から新しいパスワードを設定してください。", "info")
+        return redirect(url_for("password_forgot"))
+    return render_template("password_forgot.html", form=form)
+
+
+@app.route("/password/reset", methods=["GET", "POST"])
+def password_reset():
+    if g.user is not None:
+        return redirect(url_for("change_password"))
+    form = PasswordResetForm()
+    if form.validate_on_submit():
+        user = find_user_by_login_id(form.login_id.data)
+        token = None
+        if user is not None:
+            token = (PasswordResetToken.query
+                     .filter(PasswordResetToken.user_id == user.id,
+                             PasswordResetToken.used_at.is_(None),
+                             PasswordResetToken.expires_at > now_jst())
+                     .order_by(PasswordResetToken.id.desc()).first())
+        code = normalize_reset_code(form.code.data)
+        if token is None or not check_password_hash(token.code_hash, code):
+            if token is not None:
+                token.failed_attempts += 1
+                if token.failed_attempts >= app.config["RESET_CODE_MAX_ATTEMPTS"]:
+                    token.used_at = now_jst()  # 総当たりされないよう、ミスが続いたコードは無効にする
+                db.session.commit()
+            flash("学籍番号（ログインID）または再設定コードが違うか、コードの有効期限が切れています。", "danger")
+            return redirect(url_for("password_reset"))
+
+        user.password_hash = generate_password_hash(form.password.data)
+        user.failed_login_count = 0
+        user.locked_until = None
+        token.used_at = now_jst()
+        db.session.commit()
+        flash("パスワードを再設定しました。新しいパスワードでログインしてください。", "success")
+        return redirect(url_for("login"))
+    return render_template("password_reset.html", form=form)
+
+
+@app.route("/teacher/students/<int:student_id>/reset-code", methods=["POST"])
+@teacher_required
+def issue_reset_code(student_id):
+    """教員が学生のパスワード再設定コードを発行する"""
+    student = get_student_or_404(student_id)
+    if not ActionForm().validate_on_submit():
+        abort(400)
+    now = now_jst()
+    # 以前に発行した未使用のコードは無効にする
+    PasswordResetToken.query.filter_by(user_id=student.id, used_at=None).update({"used_at": now})
+    code = "".join(secrets.choice(RESET_CODE_ALPHABET) for _ in range(8))
+    token = PasswordResetToken(user_id=student.id, created_by_id=g.user.id,
+                               code_hash=generate_password_hash(code),
+                               expires_at=now + timedelta(hours=app.config["RESET_CODE_HOURS"]))
+    db.session.add(token)
+    PasswordResetRequest.query.filter_by(user_id=student.id, resolved_at=None).update({"resolved_at": now})
+    db.session.commit()
+    # コードは DB にハッシュでしか残らないため、この画面で一度だけ表示する
+    # （flash で渡すとセッションCookieに平文で入ってしまうので、リダイレクトせずに表示する）
+    return render_template("reset_code_issued.html", student=student,
+                           code=f"{code[:4]}-{code[4:]}", expires_at=token.expires_at)
 
 
 @app.route("/account/login-id", methods=["GET", "POST"])
@@ -596,12 +693,14 @@ def teacher_students():
                        .group_by(Work.student_id).all())
     unread = dict(db.session.query(Message.student_id, func.count(Message.id))
                   .filter(*unread_filter_for(g.user)).group_by(Message.student_id).all())
+    reset_requests = {row[0] for row in db.session.query(PasswordResetRequest.user_id)
+                      .filter(PasswordResetRequest.resolved_at.is_(None)).all()}
     pj_list = [row[0] for row in db.session.query(User.pj_assignment)
                .filter(User.role == ROLE_STUDENT, User.pj_assignment.isnot(None))
                .distinct().order_by(User.pj_assignment).all()]
     return render_template("teacher_students.html", students=students, q=q, pj=pj,
                            pj_list=pj_list, record_stats=record_stats,
-                           work_counts=work_counts, unread=unread)
+                           work_counts=work_counts, unread=unread, reset_requests=reset_requests)
 
 
 # ---------- エラー ----------
@@ -662,6 +761,23 @@ def create_user_command(username, display_name, role, password):
     click.echo(f"{role} アカウント {username} を作成しました。")
 
 
+@app.cli.command("reset-password")
+@click.option("--username", prompt="ログインID（学生なら学籍番号）")
+@click.password_option("--password", prompt="新しいパスワード")
+def reset_password_command(username, password):
+    """パスワードを直接再設定する（教員がパスワードを忘れたときなど）"""
+    if len(password) < 8:
+        raise click.ClickException("パスワードは8文字以上にしてください。")
+    user = find_user_by_login_id(username)
+    if user is None:
+        raise click.ClickException("そのログインIDのユーザーはいません。")
+    user.password_hash = generate_password_hash(password)
+    user.failed_login_count = 0
+    user.locked_until = None
+    db.session.commit()
+    click.echo(f"{user.username} のパスワードを再設定しました。")
+
+
 @app.cli.command("seed-demo")
 def seed_demo_command():
     """動作確認用のサンプルデータを入れる（パスワードはすべて password123）"""
@@ -702,6 +818,4 @@ def seed_demo_command():
 
 
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
     app.run(host="127.0.0.1", port=8080, debug=os.environ.get("FLASK_DEBUG") == "1")

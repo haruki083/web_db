@@ -19,7 +19,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from werkzeug.security import generate_password_hash  # noqa: E402
 
 from app import app  # noqa: E402
-from models import Message, Record, User, Work, db  # noqa: E402
+from models import (Message, PasswordResetRequest, PasswordResetToken,  # noqa: E402
+                    Record, User, Work, db)
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
 
@@ -144,6 +145,78 @@ def test_change_password_then_login(client):
     client.post("/logout")
     assert "ログインIDまたはパスワードが違います" in login(client, "alice").get_data(as_text=True)
     assert "アリス さんのカルテ" in login(client, "alice", "newpass99").get_data(as_text=True)
+
+
+# ---------- パスワードを忘れたとき ----------
+def issue_code(c, student="alice"):
+    """教員としてコードを発行し、画面に表示されたコードを返す"""
+    login(c, "teacher")
+    html = c.post(f"/teacher/students/{uid(student)}/reset-code").get_data(as_text=True)
+    c.post("/logout")
+    import re
+    return re.search(r"([A-Z0-9]{4}-[A-Z0-9]{4})", html).group(1)
+
+
+def reset(c, login_id, code, password="newpass99"):
+    return c.post("/password/reset", data={"login_id": login_id, "code": code,
+                                           "password": password, "confirm": password},
+                  follow_redirects=True)
+
+
+def test_forgot_password_full_flow(client):
+    assert "パスワードを忘れた場合" in client.get("/login").get_data(as_text=True)
+    res = client.post("/password/forgot", data={"login_id": "alice"}, follow_redirects=True)
+    assert "リセットを依頼しました" in res.get_data(as_text=True)
+    # 存在しないIDでも同じメッセージ（IDの有無を知られないため）
+    res = client.post("/password/forgot", data={"login_id": "nobody"}, follow_redirects=True)
+    assert "リセットを依頼しました" in res.get_data(as_text=True)
+    with app.app_context():
+        assert PasswordResetRequest.query.count() == 1
+
+    login(client, "teacher")
+    assert "PWリセット依頼" in client.get("/teacher/students").get_data(as_text=True)
+    client.post("/logout")
+
+    code = issue_code(client)
+    with app.app_context():
+        assert PasswordResetRequest.query.filter_by(resolved_at=None).count() == 0
+        token = PasswordResetToken.query.first()
+        assert code.replace("-", "") not in token.code_hash  # 平文では保存しない
+
+    res = reset(client, "alice", code.lower())  # 小文字でも受け付ける
+    assert "パスワードを再設定しました" in res.get_data(as_text=True)
+    assert "アリス さんのカルテ" in login(client, "alice", "newpass99").get_data(as_text=True)
+    client.post("/logout")
+    # 同じコードは2回使えない
+    assert "コードの有効期限が切れています" in reset(client, "alice", code, "another99").get_data(as_text=True)
+
+
+def test_reset_code_wrong_user_and_attempt_limit(client):
+    code = issue_code(client, "alice")
+    assert "コードの有効期限が切れています" in reset(client, "bob", code).get_data(as_text=True)
+    for _ in range(5):
+        reset(client, "alice", "WRNG-CODE")
+    # 5回間違えたらコードは無効になる
+    assert "コードの有効期限が切れています" in reset(client, "alice", code).get_data(as_text=True)
+
+
+def test_reset_code_expires_and_reissue_invalidates(client):
+    first = issue_code(client)
+    second = issue_code(client)
+    assert "コードの有効期限が切れています" in reset(client, "alice", first).get_data(as_text=True)
+    with app.app_context():
+        from datetime import datetime
+        token = PasswordResetToken.query.filter_by(used_at=None).first()
+        token.expires_at = datetime(2000, 1, 1)
+        db.session.commit()
+    assert "コードの有効期限が切れています" in reset(client, "alice", second).get_data(as_text=True)
+
+
+def test_only_teacher_can_issue_reset_code(client):
+    login(client, "bob")
+    assert client.post(f"/teacher/students/{uid('alice')}/reset-code").status_code == 403
+    with app.app_context():
+        assert PasswordResetToken.query.count() == 0
 
 
 # ---------- 記録 ----------

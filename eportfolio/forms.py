@@ -87,6 +87,26 @@ class LoginIdChangeForm(FlaskForm):
     submit = SubmitField("変更する")
 
 
+class ResetRequestForm(FlaskForm):
+    """ログイン画面から：教員にパスワードリセットを依頼する"""
+    login_id = StringField("学籍番号（ログインID）", filters=[strip_filter], validators=[
+        DataRequired(message="学籍番号（ログインID）を入力してください。"), Length(max=64)])
+    submit = SubmitField("教員にリセットを依頼する")
+
+
+class PasswordResetForm(FlaskForm):
+    """ログイン画面から：教員にもらった再設定コードで新しいパスワードを設定する"""
+    login_id = StringField("学籍番号（ログインID）", filters=[strip_filter], validators=[
+        DataRequired(message="学籍番号（ログインID）を入力してください。"), Length(max=64)])
+    code = StringField("再設定コード", filters=[strip_filter], validators=[
+        DataRequired(message="教員から受け取った再設定コードを入力してください。"), Length(max=32)])
+    password = PasswordField("新しいパスワード", validators=PASSWORD_RULES)
+    confirm = PasswordField("新しいパスワード（確認）", validators=[
+        DataRequired(message="確認用パスワードを入力してください。"),
+        EqualTo("password", message="パスワードが一致しません。")])
+    submit = SubmitField("パスワードを再設定する")
+
+
 # ---------- プロフィール ----------
 class ProfileForm(FlaskForm):
     display_name = StringField("氏名", filters=[strip_filter], validators=[
@@ -164,6 +184,10 @@ class MessageForm(FlaskForm):
         DataRequired(message="メッセージを入力してください。"),
         Length(max=5000, message="メッセージは5000文字以内で入力してください。")])
     submit = SubmitField("送信")
+
+
+class ActionForm(FlaskForm):
+    """ボタンだけのPOST操作用（CSRFトークンだけを持つ）"""
 
 
 class DeleteForm(FlaskForm):

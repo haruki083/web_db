@@ -13,6 +13,17 @@
       </div>
       {% if current_user.id == student.id %}
         <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('edit_profile', student_id=student.id) }}">プロフィール編集</a>
+      {% elif current_user.is_teacher %}
+        <div class="text-end">
+          {% if student.pending_reset_request %}
+            <div class="mb-1"><span class="badge text-bg-warning">パスワードリセット依頼あり（{{ student.pending_reset_request.created_at.strftime('%m/%d %H:%M') }}）</span></div>
+          {% endif %}
+          <form action="{{ url_for('issue_reset_code', student_id=student.id) }}" method="POST"
+                data-confirm="{{ student.display_name }} さんのパスワード再設定コードを発行しますか？">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-sm btn-outline-warning">パスワード再設定コードを発行</button>
+          </form>
+        </div>
       {% endif %}
     </div>
     {% if student.bio %}<div class="mt-2">{{ ui.text_body(student.bio) }}</div>{% endif %}
