@@ -1,5 +1,3 @@
-# [AI生成] Claudeが作成（AI利用記録 #7）
-# 自分で変更・追加した箇所には「# [自作]」コメントを付けること。
 import os
 import secrets
 from datetime import date, datetime, timedelta
@@ -47,7 +45,7 @@ app.config.update(
         "DATABASE_URL", "sqlite:///" + os.path.join(app.instance_path, "eportfolio.db")),
     SQLALCHEMY_TRACK_MODIFICATIONS=False,
     UPLOAD_FOLDER=os.environ.get("UPLOAD_FOLDER", os.path.join(app.instance_path, "uploads")),
-    MAX_CONTENT_LENGTH=10 * 1024 * 1024,  # 10MB
+    MAX_CONTENT_LENGTH=10 * 1024 * 1024,
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=os.environ.get("SESSION_COOKIE_SECURE", "0") == "1",

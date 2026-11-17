@@ -1,5 +1,3 @@
-# [AI生成] Claudeが作成（AI利用記録 #7）
-# 自分で変更・追加した箇所には「# [自作]」コメントを付けること。
 from urllib.parse import urlparse
 
 from flask_wtf import FlaskForm

@@ -1,4 +1,3 @@
-/* [AI生成] Claudeが作成（AI利用記録 #7） */
 document.addEventListener("DOMContentLoaded", function () {
   document.querySelectorAll("form[data-confirm]").forEach(function (form) {
     form.addEventListener("submit", function (e) {
